@@ -74,3 +74,27 @@ public class TestRunner
     }
 }
 ```
+
+### Build and Test
+
+To build and test the project using the `dotnet` CLI, follow these steps:
+
+1. Navigate to the `src` directory:
+   ```sh
+   cd src
+   ```
+
+2. Restore the dependencies:
+   ```sh
+   dotnet restore
+   ```
+
+3. Build the project:
+   ```sh
+   dotnet build
+   ```
+
+4. Run the tests:
+   ```sh
+   dotnet test
+   ```
