@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using Toast.Models;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Toast.Services
 {
