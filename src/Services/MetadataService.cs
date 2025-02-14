@@ -5,92 +5,141 @@ using Toast.Models;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Toast.Services
+namespace Toast.Services;
+
+public class MetadataService
 {
-    public class MetadataService
+    public async Task<string> FetchMetadataAsync(string serviceUrl)
     {
-        public async Task<string> FetchMetadataAsync(string serviceUrl)
+        using (HttpClient client = new HttpClient())
         {
-            using (HttpClient client = new HttpClient())
+            string metadataUrl = $"{serviceUrl}/$metadata";
+            return await client.GetStringAsync(metadataUrl);
+        }
+    }
+
+    public Metadata ParseMetadata(string metadataXml)
+    {
+        var metadata = new Metadata();
+        metadata.Entities = new List<Entity>();
+        var xDocument = XDocument.Parse(metadataXml);
+
+        // Parse entities
+        foreach (var entityElement in xDocument.Descendants("{http://docs.oasis-open.org/odata/ns/edm}EntityType"))
+        {
+            var entity = new Entity
             {
-                string metadataUrl = $"{serviceUrl}/$metadata";
-                return await client.GetStringAsync(metadataUrl);
+                Name = entityElement.Attribute("Name").Value,
+                Properties = new List<Property>(),
+                NavigationProperties = new List<NavigationProperty>()
+            };
+
+            // Parse properties
+            foreach (var propertyElement in entityElement.Elements("{http://docs.oasis-open.org/odata/ns/edm}Property"))
+            {
+                var property = new Property
+                {
+                    Name = propertyElement.Attribute("Name").Value,
+                    Type = propertyElement.Attribute("Type").Value
+                };
+                entity.Properties.Add(property);
             }
+
+            // Parse navigation properties
+            foreach (var navPropertyElement in entityElement.Elements("{http://docs.oasis-open.org/odata/ns/edm}NavigationProperty"))
+            {
+                var navProperty = new NavigationProperty
+                {
+                    Name = navPropertyElement.Attribute("Name").Value,
+                    Type = navPropertyElement.Attribute("Type").Value
+                };
+                entity.NavigationProperties.Add(navProperty);
+            }
+
+            metadata.Entities.Add(entity);
         }
 
-        public Metadata ParseMetadata(string metadataXml)
+        // Parse entities
+        foreach (var entityElement in xDocument.Descendants("{http://docs.oasis-open.org/odata/ns/edm}ComplexType"))
         {
-            var metadata = new Metadata();
-            var xDocument = XDocument.Parse(metadataXml);
-
-            // Parse entities
-            foreach (var entityElement in xDocument.Descendants("{http://docs.oasis-open.org/odata/ns/edm}EntityType"))
+            var entity = new Entity
             {
-                var entity = new Entity
+                Name = entityElement.Attribute("Name").Value,
+                Properties = new List<Property>(),
+                NavigationProperties = new List<NavigationProperty>()
+            };
+
+            // Parse properties
+            foreach (var propertyElement in entityElement.Elements("{http://docs.oasis-open.org/odata/ns/edm}Property"))
+            {
+                var property = new Property
                 {
-                    Name = entityElement.Attribute("Name").Value,
-                    Properties = new List<Property>(),
-                    NavigationProperties = new List<NavigationProperty>()
+                    Name = propertyElement.Attribute("Name").Value,
+                    Type = propertyElement.Attribute("Type").Value
+                };
+                entity.Properties.Add(property);
+            }
+
+            // Parse navigation properties
+            foreach (var navPropertyElement in entityElement.Elements("{http://docs.oasis-open.org/odata/ns/edm}NavigationProperty"))
+            {
+                var navProperty = new NavigationProperty
+                {
+                    Name = navPropertyElement.Attribute("Name").Value,
+                    Type = navPropertyElement.Attribute("Type").Value
+                };
+                entity.NavigationProperties.Add(navProperty);
+            }
+
+            metadata.Entities.Add(entity);
+        }
+
+        // Parse entityContainser.entityset
+        foreach (var entityContainerElement in xDocument.Descendants("{http://docs.oasis-open.org/odata/ns/edm}EntityContainer"))
+        {
+            foreach (var entitySetElement in entityContainerElement.Elements("{http://docs.oasis-open.org/odata/ns/edm}EntitySet"))
+            {
+                var entitySet = new Entity
+                {
+                    Name = entitySetElement.Attribute("Name").Value,
+                    Properties = entitySetElement.Attributes().Select(a => new Property { Name = a.Name.LocalName, Type = a.Value }).ToList(),
                 };
 
-                // Parse properties
-                foreach (var propertyElement in entityElement.Elements("{http://docs.oasis-open.org/odata/ns/edm}Property"))
+                // Parse navigation property bindings
+                foreach (var navPropertyBindingElement in entitySetElement.Elements("{http://docs.oasis-open.org/odata/ns/edm}NavigationPropertyBinding"))
                 {
-                    var property = new Property
+                    var navPropertyBinding = new NavigationPropertyBinding
                     {
-                        Name = propertyElement.Attribute("Name").Value,
-                        Type = propertyElement.Attribute("Type").Value
+                        Path = navPropertyBindingElement.Attribute("Path").Value,
+                        Target = navPropertyBindingElement.Attribute("Target").Value
                     };
-                    entity.Properties.Add(property);
+                    entitySet.NavigationPropertyBindings.Add(navPropertyBinding);
                 }
 
-                // Parse navigation properties
-                foreach (var navPropertyElement in entityElement.Elements("{http://docs.oasis-open.org/odata/ns/edm}NavigationProperty"))
-                {
-                    var navProperty = new NavigationProperty
-                    {
-                        Name = navPropertyElement.Attribute("Name").Value,
-                        Type = navPropertyElement.Attribute("Type").Value
-                    };
-                    entity.NavigationProperties.Add(navProperty);
-                }
-
-                metadata.Entities.Add(entity);
+                metadata.Relationships.Add(entitySet);
             }
-
-            // Parse relationships
-            foreach (var associationElement in xDocument.Descendants("{http://docs.oasis-open.org/odata/ns/edm}Association"))
-            {
-                var relationship = new Relationship
-                {
-                    Name = associationElement.Attribute("Name").Value,
-                    FromEntity = associationElement.Element("{http://docs.oasis-open.org/odata/ns/edm}End").Attribute("Type").Value,
-                    ToEntity = associationElement.Elements("{http://docs.oasis-open.org/odata/ns/edm}End").Last().Attribute("Type").Value
-                };
-                metadata.Relationships.Add(relationship);
-            }
-
-            return metadata;
         }
 
-        public List<string> ExtractQueryOptions(string metadataXml)
+        return metadata;
+    }
+
+    public List<string> ExtractQueryOptions(string metadataXml)
+    {
+        var queryOptions = new List<string>();
+        var xDocument = XDocument.Parse(metadataXml);
+
+        // Extract query options from the EDM XML
+        foreach (var entityElement in xDocument.Descendants("{http://docs.oasis-open.org/odata/ns/edm}EntityType"))
         {
-            var queryOptions = new List<string>();
-            var xDocument = XDocument.Parse(metadataXml);
-
-            // Extract query options from the EDM XML
-            foreach (var entityElement in xDocument.Descendants("{http://docs.oasis-open.org/odata/ns/edm}EntityType"))
+            foreach (var propertyElement in entityElement.Elements("{http://docs.oasis-open.org/odata/ns/edm}Property"))
             {
-                foreach (var propertyElement in entityElement.Elements("{http://docs.oasis-open.org/odata/ns/edm}Property"))
-                {
-                    var propertyName = propertyElement.Attribute("Name").Value;
-                    queryOptions.Add($"$filter={propertyName} eq 'value'");
-                    queryOptions.Add($"$select={propertyName}");
-                    queryOptions.Add($"$orderby={propertyName}");
-                }
+                var propertyName = propertyElement.Attribute("Name").Value;
+                queryOptions.Add($"$filter={propertyName} eq 'value'");
+                queryOptions.Add($"$select={propertyName}");
+                queryOptions.Add($"$orderby={propertyName}");
             }
-
-            return queryOptions;
         }
+
+        return queryOptions;
     }
 }
