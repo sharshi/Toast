@@ -1,3 +1,4 @@
+using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -35,7 +36,8 @@ public class MetadataService
             {
                 Name = entityElement.Attribute("Name").Value,
                 Properties = new List<Property>(),
-                NavigationProperties = new List<NavigationProperty>()
+                NavigationProperties = new List<NavigationProperty>(),
+                NavigationPropertyBindings = new List<NavigationPropertyBinding>()
             };
 
             // Parse properties
@@ -70,7 +72,8 @@ public class MetadataService
             {
                 Name = entityElement.Attribute("Name").Value,
                 Properties = new List<Property>(),
-                NavigationProperties = new List<NavigationProperty>()
+                NavigationProperties = new List<NavigationProperty>(),
+                NavigationPropertyBindings = new List<NavigationPropertyBinding>()
             };
 
             // Parse properties
@@ -107,6 +110,7 @@ public class MetadataService
                 {
                     Name = entitySetElement.Attribute("Name").Value,
                     Properties = entitySetElement.Attributes().Select(a => new Property { Name = a.Name.LocalName, Type = a.Value }).ToList(),
+                    NavigationPropertyBindings = new List<NavigationPropertyBinding>()
                 };
 
                 // Parse navigation property bindings
@@ -120,7 +124,7 @@ public class MetadataService
                     entitySet.NavigationPropertyBindings.Add(navPropertyBinding);
                 }
 
-                metadata.Relationships.Add(entitySet);
+                metadata.Entities.Add(entitySet);
             }
         }
 
