@@ -48,5 +48,53 @@ namespace Toast.Tests
             // Assert
             Assert.False(isValid);
         }
+
+        [Fact]
+        public void ValidateResponse_ReturnsFalseForInvalidContentType()
+        {
+            // Arrange
+            var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK);
+            response.Content = new StringContent("Invalid content");
+            response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+            var testRunner = new TestRunner();
+
+            // Act
+            var isValid = testRunner.ValidateResponse(response);
+
+            // Assert
+            Assert.False(isValid);
+        }
+
+        [Fact]
+        public void ValidateResponse_ReturnsFalseForMissingValueProperty()
+        {
+            // Arrange
+            var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK);
+            response.Content = new StringContent("{\"invalid\":\"data\"}");
+            response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+            var testRunner = new TestRunner();
+
+            // Act
+            var isValid = testRunner.ValidateResponse(response);
+
+            // Assert
+            Assert.False(isValid);
+        }
+
+        [Fact]
+        public void ValidateResponse_ReturnsTrueForValidResponse()
+        {
+            // Arrange
+            var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK);
+            response.Content = new StringContent("{\"value\":[{\"id\":\"123\",\"name\":\"John Doe\"}]}");
+            response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+            var testRunner = new TestRunner();
+
+            // Act
+            var isValid = testRunner.ValidateResponse(response);
+
+            // Assert
+            Assert.True(isValid);
+        }
     }
 }

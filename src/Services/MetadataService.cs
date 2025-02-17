@@ -1,3 +1,4 @@
+using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -14,12 +15,16 @@ public class MetadataService
         using (HttpClient client = new HttpClient())
         {
             string metadataUrl = $"{serviceUrl}/$metadata";
-            return await client.GetStringAsync(metadataUrl);
+            var metadataXml = await client.GetStringAsync(metadataUrl);
+            ValidateMetadata(metadataXml);
+            return metadataXml;
         }
     }
 
     public Metadata ParseMetadata(string metadataXml)
     {
+        ValidateMetadata(metadataXml);
+
         var metadata = new Metadata();
         metadata.Entities = new List<Entity>();
         var xDocument = XDocument.Parse(metadataXml);
@@ -31,7 +36,8 @@ public class MetadataService
             {
                 Name = entityElement.Attribute("Name").Value,
                 Properties = new List<Property>(),
-                NavigationProperties = new List<NavigationProperty>()
+                NavigationProperties = new List<NavigationProperty>(),
+                NavigationPropertyBindings = new List<NavigationPropertyBinding>()
             };
 
             // Parse properties
@@ -66,7 +72,8 @@ public class MetadataService
             {
                 Name = entityElement.Attribute("Name").Value,
                 Properties = new List<Property>(),
-                NavigationProperties = new List<NavigationProperty>()
+                NavigationProperties = new List<NavigationProperty>(),
+                NavigationPropertyBindings = new List<NavigationPropertyBinding>()
             };
 
             // Parse properties
@@ -103,6 +110,7 @@ public class MetadataService
                 {
                     Name = entitySetElement.Attribute("Name").Value,
                     Properties = entitySetElement.Attributes().Select(a => new Property { Name = a.Name.LocalName, Type = a.Value }).ToList(),
+                    NavigationPropertyBindings = new List<NavigationPropertyBinding>()
                 };
 
                 // Parse navigation property bindings
@@ -116,7 +124,7 @@ public class MetadataService
                     entitySet.NavigationPropertyBindings.Add(navPropertyBinding);
                 }
 
-                metadata.Relationships.Add(entitySet);
+                metadata.Entities.Add(entitySet);
             }
         }
 
@@ -141,5 +149,42 @@ public class MetadataService
         }
 
         return queryOptions;
+    }
+
+    private void ValidateMetadata(string metadataXml)
+    {
+        if (string.IsNullOrEmpty(metadataXml))
+        {
+            throw new ArgumentException("Metadata XML cannot be null or empty.");
+        }
+
+        var xDocument = XDocument.Parse(metadataXml);
+        if (!xDocument.Descendants("{http://docs.oasis-open.org/odata/ns/edm}EntityType").Any())
+        {
+            throw new ArgumentException("Metadata XML does not contain any EntityType elements.");
+        }
+    }
+
+    public List<string> AutogenerateUrlsFromMetadata(string metadataXml)
+    {
+        var urls = new List<string>();
+        var xDocument = XDocument.Parse(metadataXml);
+
+        foreach (var entityElement in xDocument.Descendants("{http://docs.oasis-open.org/odata/ns/edm}EntityType"))
+        {
+            var entityName = entityElement.Attribute("Name").Value;
+            var baseUrl = $"http://example.com/odata/{entityName}";
+
+            // Generate URLs for each query option
+            foreach (var propertyElement in entityElement.Elements("{http://docs.oasis-open.org/odata/ns/edm}Property"))
+            {
+                var propertyName = propertyElement.Attribute("Name").Value;
+                urls.Add($"{baseUrl}?$filter={propertyName} eq 'value'");
+                urls.Add($"{baseUrl}?$select={propertyName}");
+                urls.Add($"{baseUrl}?$orderby={propertyName}");
+            }
+        }
+
+        return urls;
     }
 }

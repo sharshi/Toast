@@ -14,6 +14,7 @@ public class Entity
     public string Name { get; set; }
     public List<Property> Properties { get; set; }
     public List<NavigationProperty> NavigationProperties { get; set; }
+    public List<NavigationPropertyBinding> NavigationPropertyBindings { get; set; }
 }
 
 public class Property
@@ -26,6 +27,12 @@ public class NavigationProperty
 {
     public string Name { get; set; }
     public string Type { get; set; }
+}
+
+public class NavigationPropertyBinding
+{
+    public string Path { get; set; }
+    public string Target { get; set; }
 }
 
 public class Relationship
