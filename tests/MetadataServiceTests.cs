@@ -89,5 +89,61 @@ namespace Toast.Tests
             Assert.Contains("$select=Name", queryOptions);
             Assert.Contains("$orderby=Name", queryOptions);
         }
+
+        [Fact]
+        public void ValidateMetadata_ThrowsExceptionForInvalidMetadata()
+        {
+            // Arrange
+            var invalidMetadataXml = "<invalid></invalid>";
+            var metadataService = new MetadataService();
+
+            // Act & Assert
+            Assert.Throws<ArgumentException>(() => metadataService.ParseMetadata(invalidMetadataXml));
+        }
+
+        [Fact]
+        public async Task FetchMetadataAsync_ThrowsExceptionForInvalidMetadata()
+        {
+            // Arrange
+            var serviceUrl = "http://example.com/invalid-odata";
+            var metadataService = new MetadataService();
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () => await metadataService.FetchMetadataAsync(serviceUrl));
+        }
+
+        [Fact]
+        public void AutogenerateUrlsFromMetadata_ReturnsGeneratedUrls()
+        {
+            // Arrange
+            var metadataXml = @"
+                <edmx:Edmx xmlns:edmx='http://docs.oasis-open.org/odata/ns/edmx'>
+                    <edmx:DataServices>
+                        <Schema xmlns='http://docs.oasis-open.org/odata/ns/edm'>
+                            <EntityType Name='Person'>
+                                <Key>
+                                    <PropertyRef Name='ID' />
+                                </Key>
+                                <Property Name='ID' Type='Edm.String' Nullable='false' />
+                                <Property Name='Name' Type='Edm.String' />
+                                <NavigationProperty Name='Address' Type='Namespace.Address' />
+                            </EntityType>
+                        </Schema>
+                    </edmx:DataServices>
+                </edmx:Edmx>";
+            var metadataService = new MetadataService();
+
+            // Act
+            var urls = metadataService.AutogenerateUrlsFromMetadata(metadataXml);
+
+            // Assert
+            Assert.NotNull(urls);
+            Assert.Contains("http://example.com/odata/Person?$filter=ID eq 'value'", urls);
+            Assert.Contains("http://example.com/odata/Person?$select=ID", urls);
+            Assert.Contains("http://example.com/odata/Person?$orderby=ID", urls);
+            Assert.Contains("http://example.com/odata/Person?$filter=Name eq 'value'", urls);
+            Assert.Contains("http://example.com/odata/Person?$select=Name", urls);
+            Assert.Contains("http://example.com/odata/Person?$orderby=Name", urls);
+        }
     }
 }
